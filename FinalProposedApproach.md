@@ -24,8 +24,6 @@ The primary gap in existing literature lies in the absence of a data-structure�
 
 
 
-To the best of our knowledge, no prior anonymization method performs clustering based on combinations of categorical attributes.
-
 **4.2.Overview of the Proposed Framework**
 
 To address these limitations, we propose a level-wise semantic clustering framework for k-anonymization that is explicitly designed using optimized data structures and algorithms. The proposed approach performs clustering based on combinations of categorical attributes, thereby enabling precise semantic grouping, while numerical attributes are optimized within each categorical cluster.
@@ -172,143 +170,15 @@ Importantly, the algorithm does not force execution until maxlevel. If sufficien
 
 **4.3.4.Detailed Working of the Proposed Framework**
 
-**Step 1: Input Raw Tuples**
+This section presents the detailed execution flow of the proposed semantic-first k-anonymization framework, describing how categorical and numerical attributes are processed in a coordinated yet decoupled manner to achieve scalable and low-loss anonymization.
 
-The algorithm starts with raw, non-anonymized tuples.
+**Step 1: Preprocessing and Numerical Distance Augmentation**
 
-A pointer i is initialized to 0, indicating the starting index of tuples to be processed.
+After loading the dataset and constructing the quasi-identifier (QI) table, the proposed framework performs a lightweight numerical preprocessing step. For each numerical quasi-identifier attribute, the global minimum value of its domain is computed. Subsequently, for every tuple, a numerical distance value is calculated as the sum of differences between the tuple’s numerical attribute values and their corresponding global minimum values.
 
-**Step 2: Recursive Cluster Generation (Algorithm 1)**
 
-Algorithm 1 (generateClusters) is the core recursive procedure. It takes:
 
-
-
-Pointer i (start index)
-
-
-
-Dataset size n
-
-
-
-Current generalization level
-
-
-
-Maximum DGH level
-
-
-
-k (cluster size)
-
-
-
-At each recursion level, the algorithm attempts to form k-clusters from index i onward.
-
-**Step 3: Level-Wise Categorical Generalization (Algorithm 2)**
-
-In the first iteration, categorical attributes are generalized to their immediate parent values using DGH parent maps.
-
-
-
-This means:
-
-
-
-Level 0 → Level 1
-
-
-
-Only tuples from index i onward are generalized
-
-
-
-Previously finalized clusters are never modified
-
-
-
-This selective generalization prevents redundant computation and preserves earlier clusters.
-
-**Step 4: Constructing Categorical Combination HashMap (Algorithm 3)**
-
-After generalization, a HashMap is constructed where:
-
-
-
-Key: concatenation of categorical attributes (a categorical combination)
-
-
-
-Value: a PriorityQueue of numerical attribute lists
-
-
-
-This HashMap allows the algorithm to:
-
-
-
-Compute frequency of sibling combinations
-
-
-
-Identify combinations whose size ≥ k
-
-
-
-Perform clustering based on categorical combinatorics
-
-
-
-This step is the foundation of semantic clustering in the proposed work.
-
-**Step 5: Numerical Optimization using PriorityQueue**
-
-Within each HashMap entry:
-
-
-
-Numerical attributes (e.g., age, salary) are stored as lists
-
-
-
-A PriorityQueue orders tuples based on a computed numerical distance
-
-
-
-The distance is calculated using normalized numerical attributes, ensuring that:
-
-
-
-Tuples with minimum numerical deviation are clustered together
-
-
-
-Numerical information loss is minimized even before explicit generalization
-
-
-
-Thus, the proposed approach jointly optimizes:
-
-
-
-Categorical semantics
-
-
-
-Numerical proximity
-
-
-
-Although the proposed framework primarily focuses on semantic clustering based on combinations of categorical attributes, numerical attributes are also carefully optimized within each categorical cluster to further reduce information loss.
-
-
-
-For this purpose, the proposed approach introduces a numerical distance metric that is computed for every tuple before clustering. For each numerical attribute domain, the minimum value of that domain is identified globally. Then, for a given tuple, the numerical distance is calculated using a Manhattan distance formulation, defined as the sum of absolute differences between the tuple’s numerical values and the corresponding minimum values of each numerical domain.
-
-
-
-Formally, let a tuple contain numerical attributes
+Formally, for a tuple containing numerical attributes
 
 
 
@@ -340,115 +210,35 @@ Formally, let a tuple contain numerical attributes
 
 }
 
-N={n
+and global minimum values
+
+min(N)={min
 
 1
 
- 	​
+&nbsp;	​
 
 
 
-,n
+,min
 
 2
 
- 	​
+&nbsp;	​
 
 
 
-,…,n
+,…,min
 
 m
 
- 	​
+&nbsp;	​
 
 
 
-}
+},
 
-
-
-and let
-
-
-
-min
-
-⁡
-
-(
-
-𝑁
-
-)
-
-=
-
-{
-
-min
-
-⁡
-
-1
-
-,
-
-min
-
-⁡
-
-2
-
-,
-
-…
-
-,
-
-min
-
-⁡
-
-𝑚
-
-}
-
-min(N)={
-
-1
-
-min
-
- 	​
-
-
-
-,
-
-2
-
-min
-
- 	​
-
-
-
-,…,
-
-m
-
-min
-
- 	​
-
-
-
-}
-
-
-
-denote the minimum values of each numerical attribute domain. The numerical distance for a tuple is computed as:
+the distance is computed as:
 
 
 
@@ -466,7 +256,7 @@ Distance
 
 𝑚
 
-∣
+(
 
 𝑛
 
@@ -480,175 +270,99 @@ min
 
 𝑖
 
-∣
+)
 
-Distance=
+This distance value serves as an auxiliary ordering signal and is appended as an additional column to the QI table. The distance column is used only for internal ordering of tuples during clustering and does not participate in categorical generalization or privacy enforcement. This preprocessing step is performed once, prior to clustering, and remains unchanged throughout the execution of the algorithm.
 
-i=1
 
-∑
 
-m
+**Step 2: Recursive Cluster Generation (Algorithm 1)**
 
- 	​
 
 
+Algorithm 1 (generateClusters) is invoked on the augmented QI table. A pointer i is initialized to zero, representing the starting index of unprocessed tuples. The algorithm operates recursively, attempting to form k-anonymous clusters from index i onward at the current categorical generalization level.
 
-∣n
 
-i
 
- 	​
+**Step 3: Level-Wise Categorical Generalization (Algorithm 2)**
 
 
 
-−
+At each recursive iteration, categorical attributes of tuples in the range 
 
-i
+\[i,n−1] are generalized to their immediate parent values using precomputed Domain Generalization Hierarchy (DGH) parent maps. Tuples with indices less than i, which belong to previously finalized clusters, remain unchanged.
 
-min
 
- 	​
 
+This selective, index-based generalization ensures minimal categorical information loss while supporting efficient level-wise semantic clustering.
 
 
-∣
 
+**Step 4: Construction of Categorical Combination HashMap (Algorithm 3)**
 
 
-This computed distance value is appended as an auxiliary distance column to each tuple. The distance column is used only during clustering and is removed after anonymization is complete.
 
+Following categorical generalization, a HashMap is constructed over the range \[i,n−1]. Each key in the HashMap represents a unique combination of categorical attribute values, obtained by concatenating the generalized categorical attributes of a tuple. The corresponding value is a PriorityQueue containing numerical attribute lists associated with that categorical combination.
 
 
-During HashMap construction, for each categorical combination key, the associated numerical attribute lists are stored in a PriorityQueue implemented as a min-heap, where tuples are ordered based on their distance values. As a result:
 
+Each numerical list stored in the PriorityQueue includes the tuple’s numerical attribute values along with the precomputed distance value appended during preprocessing.
 
 
-Tuples with minimum numerical deviation are prioritized
 
+**Step 5: Numerical Ordering within Semantic Groups Using PriorityQueue**
 
 
-Numerically similar records are grouped together within the same categorical cluster
 
+Within each categorical combination group, numerical attributes are internally optimized using a PriorityQueue implemented as a min-heap. Tuples are ordered based on their precomputed distance values, such that tuples with smaller numerical deviation are prioritized during cluster formation.
 
 
-Numerical information loss is reduced even before explicit numerical generalization
 
+It is important to emphasize that numerical distances are not computed at this stage. Instead, the PriorityQueue leverages the auxiliary distance column generated in Step 1. This design cleanly separates numerical distance computation from clustering logic, ensuring computational efficiency and preserving the semantic-first nature of the framework.
 
 
-This strategy ensures that while clusters are primarily formed based on semantic similarity of categorical attributes, the numerical attributes within each cluster are also internally optimized. Consequently, the proposed framework achieves a balanced anonymization process that preserves both semantic meaning and numerical precision.
 
+**Step 6: Computation of Updated Pointer 𝑗,j (Algorithm 4)**
 
 
-This design choice makes the proposed approach robust and extensible, allowing future researchers to integrate alternative numerical distance metrics or optimization strategies without affecting the core semantic clustering mechanism.
-**Step 6: Computing Updated Pointer j (Algorithm 4)**
 
-Algorithm 4 computes the value of j based on:
+Algorithm 4 computes a boundary index j by analyzing the sizes of categorical groups relative to the k-anonymity requirement. Tuples that can form complete k-sized clusters at the current generalization level are assigned to the range 
 
+\[i,j−1], while remaining tuples are deferred for further generalization.
 
 
-Remainder tuples that cannot form complete k-clusters at the current level
 
-The range:
-\[i … j−1]
+**Step 7: Rearrangement of the Original List (Algorithm 5)**
 
-contains efficient clusters of the current level, while:
-\[j … n−1]
 
-contains tuples that require further generalization.
 
-**Step 7: Rearranging Original List (Algorithm 5)**
+Using a two-pointer strategy, Algorithm 5 rearranges the dataset in-place. Tuples forming valid k-anonymous clusters are written sequentially starting from index i, while overflow tuples that cannot yet satisfy k-anonymity are placed starting from index j. This approach ensures that finalized clusters are never reprocessed in subsequent iterations.
 
-Algorithm 5 rearranges the dataset:
 
 
+**Step 8: Recursive Progression to the Next Generalization Level**
 
-Valid k-clusters are written starting from index i
 
 
+The algorithm proceeds recursively with updated parameters i=j and level=level+1. Since each recursion operates on a strictly smaller suffix of the dataset and the maximum depth is bounded by the DGH height, the overall clustering process remains efficient and scalable.
 
-Overflow tuples are placed starting from index j
 
 
+**Step 9: Base Case Handling Using Lowest Common Ancestor (Algorithms 6–8)**
 
-This two-pointer strategy ensures:
 
 
+When either the number of remaining tuples becomes less than k or the maximum generalization level is reached, the algorithm enters its base case. Remaining categorical values are generalized using their Lowest Common Ancestors (LCAs) in the respective DGHs, ensuring that k-anonymity is satisfied even in worst-case scenarios.
 
-In-place clustering
 
 
+**Step 10: Numerical Attribute Generalization (Algorithm 9)**
 
-No reprocessing of finalized clusters
 
 
+After categorical clustering is finalized, numerical attributes within each k-anonymous cluster are generalized using min–max range intervals. This step is intentionally decoupled from clustering to preserve semantic integrity while ensuring numerical privacy.
 
-Reduced recursion workload
-**Step 8: Recursive Progression to Next Level**
-
-The recursion restarts with:
-
-i = j
-
-level = level + 1
-
-Thus, each recursion operates on a shrinking suffix of the dataset, guaranteeing O(n log n) complexity.
-
-
-
-**4.4.Base Case Handling with LCA (Algorithms 6–8)**
-
-When:
-
-
-
-Remaining tuples < k, or
-
-
-
-Maximum generalization level is reached
-
-
-
-The algorithm:
-
-
-
-Collects unique categorical values per domain (Algorithm 6)
-
-
-
-Computes the LCA for each categorical domain (Algorithm 7)
-
-
-
-Generalizes remaining tuples using these LCAs (Algorithm 8)
-
-
-
-This ensures privacy is never violated, even in worst-case scenarios.
-
-
-
-**4.5.Numerical Attribute Generalization (Algorithm 9)**
-
-After categorical clustering is finalized:
-
-
-
-Numerical attributes are generalized within each k-cluster
-
-
-
-Min–max range generalization is applied
-
-
-
-This step is intentionally decoupled from clustering to preserve semantics
-
-
-
-**4.6.Information Loss Measurement (Algorithms 11–14)**
+**4.4.Information Loss Measurement (Algorithms 11–14)**
 
 The framework includes:
 
@@ -668,7 +382,7 @@ Unified total information loss metric
 
 This provides a rigorous, interpretable evaluation of data utility.
 
-**4.7.Algorithms Used in the Proposed Approach**
+**4.5.Algorithms Used in the Proposed Approach**
 
 **Algorithm1:**
 
@@ -854,7 +568,7 @@ The input parameter list represents the two-dimensional dataset after categorica
 
 
 
-The value associated with each HashMap key is a PriorityQueue implemented as a min-heap, which stores the corresponding numerical attribute values of tuples belonging to that categorical combination. Each numerical tuple is augmented with a distance value, computed as the sum of absolute differences between each numerical attribute and the minimum value of its respective domain. This aggregated distance is used as the ordering criterion for the PriorityQueue.
+The value associated with each HashMap key is a PriorityQueue implemented as a min-heap, which stores the corresponding numerical attribute values of tuples belonging to that categorical combination. Each numerical tuple is augmented with a distance value, computed as the sum of absolute differences between each numerical attribute and the minimum value of its respective domain. This aggregated distance is used as the ordering criterion for the PriorityQueue. The distance value used for PriorityQueue ordering is precomputed and appended to the dataset prior to invoking the clustering algorithm.
 
 
 
@@ -1424,38 +1138,6 @@ Specifically, the information loss for the Age attribute is calculated as:
 
 
 
-Age Loss
-
-=
-
-max
-
-⁡
-
-(
-
-Age
-
-)
-
-−
-
-min
-
-⁡
-
-(
-
-Age
-
-)
-
-globalMaxAge
-
-−
-
-globalMinAge
-
 Age Loss=
 
 globalMaxAge−globalMinAge
@@ -1471,38 +1153,6 @@ max(Age)−min(Age)
 Similarly, the information loss for the Hours-per-Week attribute is computed as:
 
 
-
-Hours Loss
-
-=
-
-max
-
-⁡
-
-(
-
-Hours
-
-)
-
-−
-
-min
-
-⁡
-
-(
-
-Hours
-
-)
-
-globalMaxHours
-
-−
-
-globalMinHours
 
 Hours Loss=
 
@@ -1556,12 +1206,6 @@ Number of leaf nodes under the current node
 
 Total number of leaf nodes under the root
 
-Categorical Loss=
-
-Total number of leaf nodes under the root
-
-Number of leaf nodes under the current node
-
  	​
 
 
@@ -1611,16 +1255,6 @@ Numerical Loss
 Categorical Loss
 
 2
-
-Total Information Loss=
-
-2
-
-Numerical Loss+Categorical Loss
-
- 	​
-
-
 
 
 
@@ -1684,7 +1318,7 @@ This structured evaluation framework ensures both precision and semantic interpr
 
 
 
-**4.8.Key Contributions of the Proposed Framework**
+**4.6.Key Contributions of the Proposed Framework**
 
 First approach to perform clustering based on combinations of categorical attributes
 
@@ -1710,7 +1344,7 @@ Efficient O(n log n) runtime using recursion, HashMap, PriorityQueue, and two po
 
 
 
-**4.9.Summary**
+**4.7.Summary**
 
 The proposed framework introduces a novel semantic clustering-based k-anonymization approach that prioritizes categorical meaning while preserving privacy. By clustering on categorical combinations and optimizing numerical attributes within those clusters, the method achieves highly interpretable anonymized data with minimal information loss, making it well-suited for real-world data publishing scenarios.
 
@@ -1718,7 +1352,7 @@ The proposed framework introduces a novel semantic clustering-based k-anonymizat
 
 
 
-**5.0.Time Complexity Analysis**
+**4.8.Time Complexity Analysis**
 
 
 
@@ -1766,28 +1400,6 @@ Time Complexity:
 
 
 
-𝑂
-
-(
-
-𝑛
-
-−
-
-𝑖
-
-)
-
-⊆
-
-𝑂
-
-(
-
-𝑛
-
-)
-
 O(n−i)⊆O(n)
 
 Algorithm 3: HashMap Construction
@@ -1814,28 +1426,6 @@ Time Complexity:
 
 
 
-𝑂
-
-(
-
-𝑛
-
-−
-
-𝑖
-
-)
-
-⊆
-
-𝑂
-
-(
-
-𝑛
-
-)
-
 O(n−i)⊆O(n)
 
 Algorithm 4: Boundary Index Computation
@@ -1857,28 +1447,6 @@ Each entry is processed once.
 Time Complexity:
 
 
-
-𝑂
-
-(
-
-𝑛
-
-−
-
-𝑖
-
-)
-
-⊆
-
-𝑂
-
-(
-
-𝑛
-
-)
 
 O(n−i)⊆O(n)
 
@@ -1902,38 +1470,6 @@ Sorting the HashMap entries requires:
 
 
 
-𝑂
-
-(
-
-𝑚
-
-log
-
-⁡
-
-𝑚
-
-)
-
-,
-
-where
-
-𝑚
-
-≤
-
-(
-
-𝑛
-
-−
-
-𝑖
-
-)
-
 O(mlogm),where m≤(n−i)
 
 
@@ -1946,52 +1482,6 @@ Overall Time Complexity:
 
 
 
-𝑂
-
-(
-
-(
-
-𝑛
-
-−
-
-𝑖
-
-)
-
-log
-
-⁡
-
-(
-
-𝑛
-
-−
-
-𝑖
-
-)
-
-)
-
-⊆
-
-𝑂
-
-(
-
-𝑛
-
-log
-
-⁡
-
-𝑛
-
-)
-
 O((n−i)log(n−i))⊆O(nlogn)
 
 Total Cost per Iteration
@@ -2002,103 +1492,15 @@ Combining the costs of Algorithms 2 through 5:
 
 
 
-𝑂
-
-(
-
-𝑛
-
-)
-
-\+
-
-𝑂
-
-(
-
-𝑛
-
-)
-
-\+
-
-𝑂
-
-(
-
-𝑛
-
-)
-
-\+
-
-𝑂
-
-(
-
-𝑛
-
-log
-
-⁡
-
-𝑛
-
-)
-
-=
-
-𝑂
-
-(
-
-𝑛
-
-log
-
-⁡
-
-𝑛
-
-)
-
 O(n)+O(n)+O(n)+O(nlogn)=O(nlogn)
 
 
 
 Since the dominant term is
 
-𝑂
-
-(
-
-𝑛
-
-log
-
-⁡
-
-𝑛
-
-)
-
 O(nlogn), the cost of one iteration of Algorithm 1 is:
 
 
-
-𝑂
-
-(
-
-𝑛
-
-log
-
-⁡
-
-𝑛
-
-)
 
 O(nlogn)
 
@@ -2110,40 +1512,6 @@ As established earlier, Algorithm 1 executes for at most maxlevel iterations, wh
 
 
 
-𝑂
-
-(
-
-maxlevel
-
-×
-
-𝑛
-
-log
-
-⁡
-
-𝑛
-
-)
-
-=
-
-𝑂
-
-(
-
-𝑛
-
-log
-
-⁡
-
-𝑛
-
-)
-
 O(maxlevel×nlogn)=O(nlogn)
 
 Base Case Handling Complexity
@@ -2152,49 +1520,7 @@ Base Case Handling Complexity
 
 When the base condition
 
-(
-
-𝑛
-
-−
-
-𝑖
-
-)
-
-≤
-
-𝑘
-
 (n−i)≤k or
-
-𝑙
-
-𝑒
-
-𝑣
-
-𝑒
-
-𝑙
-
-=
-
-𝑚
-
-𝑎
-
-𝑥
-
-𝑙
-
-𝑒
-
-𝑣
-
-𝑒
-
-𝑙
 
 level=maxlevel is reached, Algorithms 6–8 are executed. These algorithms perform:
 
@@ -2220,28 +1546,6 @@ Time Complexity:
 
 
 
-𝑂
-
-(
-
-𝑛
-
-−
-
-𝑖
-
-)
-
-⊆
-
-𝑂
-
-(
-
-𝑛
-
-)
-
 O(n−i)⊆O(n)
 
 
@@ -2264,9 +1568,7 @@ For large datasets where
 
 5
 
-n=10
 
-5
 
  or
 
@@ -2278,35 +1580,15 @@ n=10
 
 6
 
-n=10
 
-6
 
-, quadratic-time algorithms (
-
-𝑂
-
-(
-
-𝑛
-
-2
-
-)
-
-O(n
-
-2
-
-)) would require on the order of
+, quadratic-time algorithms (O(n 2)) would require on the order of
 
 10
 
 10
 
-10
 
-10
 
  to
 
@@ -2314,29 +1596,11 @@ O(n
 
 12
 
-10
-
-12
-
- operations, making them computationally infeasible.
+operations, making them computationally infeasible.
 
 
 
 In contrast, the proposed framework operates in
-
-𝑂
-
-(
-
-𝑛
-
-log
-
-⁡
-
-𝑛
-
-)
 
 O(nlogn) time. Even for
 
@@ -2345,10 +1609,6 @@ O(nlogn) time. Even for
 =
 
 10
-
-6
-
-n=10
 
 6
 
@@ -2383,26 +1643,6 @@ log
 ×
 
 10
-
-7
-
-10
-
-6
-
-×log
-
-2
-
- 	​
-
-
-
-(10
-
-6
-
-)≈2×10
 
 7
 
